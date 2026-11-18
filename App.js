@@ -379,7 +379,7 @@ function ChoiceBtn({ icon, title, sub, onPress, onWebFile }) {
       <Text style={styles.choiceIcon}>{icon}</Text>
       <View style={{ flex: 1, gap: 4 }}>
         <Text style={styles.choiceTitle}>{title}</Text>
-        <Text style={styles.choiceSub}>{sub}</Text>
+        <Text style={styles.choiceSub} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{sub}</Text>
       </View>
       <Text style={styles.choiceArrow}>›</Text>
       {webInput && (
@@ -743,11 +743,11 @@ const styles = StyleSheet.create({
   resumeImg: { width: 100, height: 100, borderRadius: 14, backgroundColor: C.soft },
   resumeTitle: { fontSize: 24, fontWeight: '800', color: C.onAccent },
   resumeSub: { fontSize: 17, color: C.onAccent, fontWeight: '600' },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.card, borderRadius: 20,
-    paddingVertical: 22, paddingHorizontal: 18, borderWidth: 2, borderColor: C.line, minHeight: 104 },
-  choiceIcon: { fontSize: 38 },
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderRadius: 20,
+    paddingVertical: 22, paddingHorizontal: 14, borderWidth: 2, borderColor: C.line, minHeight: 104 },
+  choiceIcon: { fontSize: 32 },
   choiceTitle: { fontSize: 20, fontWeight: '800', color: C.ink },
-  choiceSub: { fontSize: 16, color: C.muted, lineHeight: 23 },
+  choiceSub: { fontSize: 15, color: C.muted, lineHeight: 22 },
   choiceArrow: { fontSize: 34, color: C.ink, fontWeight: '700' },
   basicHead: { gap: 12, alignItems: 'flex-start' },
   backBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 26, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
