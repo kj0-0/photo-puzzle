@@ -71,8 +71,7 @@ const buzz = (kind) => {
 // ───── 기록 저장 ─────
 const STORE_KEY = 'photo-puzzle-progress-v1';
 const DEFAULT_PROGRESS = { unlocked: 1, level: 1, done: {}, days: {}, sound: true, resume: null, cleared: {}, badge: null };
-// cleared: 완성한 단계 { 1: true, ... }, badge: 8단계를 모두 완성해 성공 뱃지를 받은 날 (YYYY-MM-DD)
-const allCleared = (cl) => LEVELS.every((_, i) => cl?.[i + 1]);
+// cleared: 완성한 단계 { 1: true, ... }, badge: 마지막(8)단계를 완성해 성공 뱃지를 받은 날 (YYYY-MM-DD)
 // resume: 하다 만 퍼즐 { key, level, edges, locked:[조각 번호] } — 다 맞추면 null
 const ALBUM_KEY = 'photo-puzzle-album-v1'; // 앨범 사진(작게 줄인 data URI)은 따로 저장
 const dayKey = (d = new Date()) =>
@@ -284,13 +283,12 @@ function Main() {
   }
 
   function cleared(level) {
-    const cl = { ...prog.cleared, [level]: true };
-    const earned = !prog.badge && allCleared(cl);
+    const earned = !prog.badge && level === LEVELS.length; // 8단계 성공 → 성공 뱃지
     if (earned) setNewBadge(true);
     update((p) => ({
       ...p,
       cleared: { ...p.cleared, [level]: true },
-      badge: p.badge || (allCleared({ ...p.cleared, [level]: true }) ? dayKey() : null),
+      badge: p.badge || (level === LEVELS.length ? dayKey() : null),
       unlocked: Math.min(LEVELS.length, Math.max(p.unlocked, level + 1)),
       level: Math.min(LEVELS.length, Math.max(p.level, level + 1)), // 새 그림은 다음 단계로 시작
       resume: null,
@@ -377,7 +375,7 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
           <SuccessBadge size={64} />
           <View style={{ flex: 1, gap: 2 }}>
             <Text style={styles.badgeTitle}>성공 뱃지</Text>
-            <Text style={styles.badgeSub}>8단계를 모두 완성했어요</Text>
+            <Text style={styles.badgeSub}>8단계를 완성했어요</Text>
             <Text style={styles.badgeSub}>{prog.badge.replace(/^(\d+)-(\d+)-(\d+)$/, (_, y, m, d) => `${y}년 ${+m}월 ${+d}일`)}</Text>
           </View>
         </View>
@@ -386,7 +384,7 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
           <SuccessBadge size={52} dim />
           <View style={{ flex: 1, gap: 6 }}>
             <Text style={styles.badgeTitle}>
-              {`성공 뱃지까지 ${LEVELS.length - Object.keys(prog.cleared).length}단계 남았어요`}
+              {`${LEVELS.length}단계를 완성하면 성공 뱃지를 받아요`}
             </Text>
             <View style={styles.dots}>
               {LEVELS.map((_, i) => (
@@ -766,7 +764,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
               <>
                 <SuccessBadge size={120} />
                 <Text style={[styles.h2, { textAlign: 'center' }]}>성공 뱃지를 받았어요! 🎉</Text>
-                <Text style={[styles.sub, { textAlign: 'center' }]}>1단계부터 8단계까지{'\n'}모두 완성하셨어요. 정말 대단해요!</Text>
+                <Text style={[styles.sub, { textAlign: 'center' }]}>8단계를 완성하셨어요.{'\n'}정말 대단해요!</Text>
               </>
             ) : (
               <>
@@ -784,9 +782,9 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
                 </Text>
               </View>
             )}
-            <Btn primary label={isMax ? '한 번 더 하기' : '다음 단계로'} onPress={() => { setShowModal(false); onNext(); }} />
+            {!isMax && <Btn primary label="다음 단계로" onPress={() => { setShowModal(false); onNext(); }} />}
             {!isMax && <Btn label="이 단계 한 번 더" onPress={() => { setShowModal(false); onRetry(); }} />}
-            <Btn label="사진 바꾸기" onPress={() => { setShowModal(false); onExit(); }} />
+            <Btn primary={isMax} label="다른 사진으로 하기" onPress={() => { setShowModal(false); onExit(); }} />
           </View>
         </View>
       </Modal>
