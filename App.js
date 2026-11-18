@@ -32,18 +32,20 @@ const SOUNDS = {
 
 // ───── 단계 설계 (어르신용: 천천히 어려워짐, 회전 없음) ─────
 // n: 가로세로 조각 수, guide: 판에 깔리는 흐린 밑그림 진하기
-// 단계: 9조각부터 36조각까지. 같은 조각 수에서는 밑그림을 더 흐리게 해서 조금씩 어렵게
+// 단계: 6조각부터 36조각까지 (c: 가로 칸, r: 세로 칸, guide: 판에 깔린 밑그림 진하기)
+// 칸 모양이 정사각형에 가깝도록 퍼즐판 높이를 칸 수에 맞춤 (아래 Game의 onLayout)
 const LEVELS = [
-  { n: 3, guide: 0.45 }, // 1단계  9조각
-  { n: 3, guide: 0.25 }, // 2단계  9조각
-  { n: 4, guide: 0.35 }, // 3단계 16조각
-  { n: 4, guide: 0.2 },  // 4단계 16조각
-  { n: 5, guide: 0.3 },  // 5단계 25조각
-  { n: 5, guide: 0.15 }, // 6단계 25조각
-  { n: 6, guide: 0.25 }, // 7단계 36조각
-  { n: 6, guide: 0.12 }, // 8단계 36조각
+  { c: 3, r: 2, guide: 0.45 }, // 1단계  6조각
+  { c: 4, r: 3, guide: 0.4 },  // 2단계 12조각
+  { c: 4, r: 4, guide: 0.35 }, // 3단계 16조각
+  { c: 5, r: 4, guide: 0.3 },  // 4단계 20조각
+  { c: 6, r: 4, guide: 0.25 }, // 5단계 24조각
+  { c: 7, r: 4, guide: 0.2 },  // 6단계 28조각
+  { c: 8, r: 4, guide: 0.18 }, // 7단계 32조각
+  { c: 6, r: 6, guide: 0.15 }, // 8단계 36조각
 ];
 const levelCfg = (lv) => LEVELS[Math.min(lv, LEVELS.length) - 1];
+const countOf = (cfg) => cfg.c * cfg.r;
 const TRAY_MAX = 8; // 판 아래에 한 번에 꺼내 두는 조각 수
 
 const C = {
@@ -83,11 +85,11 @@ function streakOf(days) {
 
 // ───── 직소 조각 모양 ─────
 // 퍼즐 전체의 이음새: +1이면 위/왼쪽 조각이 볼록, -1이면 오목
-function makeEdges(n) {
+function makeEdges(cols, rows) {
   const r = () => (Math.random() < 0.5 ? 1 : -1);
   return {
-    h: Array.from({ length: n - 1 }, () => Array.from({ length: n }, r)), // 가로 이음새 (행 사이)
-    v: Array.from({ length: n }, () => Array.from({ length: n - 1 }, r)), // 세로 이음새 (열 사이)
+    h: Array.from({ length: rows - 1 }, () => Array.from({ length: cols }, r)), // 가로 이음새 (행 사이)
+    v: Array.from({ length: rows }, () => Array.from({ length: cols - 1 }, r)), // 세로 이음새 (열 사이)
   };
 }
 
@@ -99,26 +101,27 @@ const TAB = [
   [[0.60, 0.05], [0.65, 0], [0.65, 0]],
 ];
 
-function edgePath(x0, y0, x1, y1, sign, L) {
+// D: 볼록한 부분 높이 기준(칸의 짧은 변) — 직사각형 칸에서도 볼록한 크기가 같게
+function edgePath(x0, y0, x1, y1, sign, L, D) {
   const dx = x1 - x0, dy = y1 - y0;
   const nx = dy / L, ny = -dx / L; // 시계방향 진행 시 바깥 법선
-  const pt = ([u, v]) => `${(x0 + u * dx + v * sign * nx * L).toFixed(2)},${(y0 + u * dy + v * sign * ny * L).toFixed(2)}`;
+  const pt = ([u, v]) => `${(x0 + u * dx + v * sign * nx * D).toFixed(2)},${(y0 + u * dy + v * sign * ny * D).toFixed(2)}`;
   if (!sign) return `L${x1},${y1}`;
   return `L${pt([0.35, 0])}` + TAB.map((seg) => `C${seg.map(pt).join(' ')}`).join('') + `L${x1},${y1}`;
 }
 
-function piecePath(id, n, edges, tile, pad) {
-  const r = Math.floor(id / n), c = id % n;
+function piecePath(id, cols, rows, edges, tw, th, pad) {
+  const r = Math.floor(id / cols), c = id % cols;
   const top = r === 0 ? 0 : -edges.h[r - 1][c];
-  const bottom = r === n - 1 ? 0 : edges.h[r][c];
+  const bottom = r === rows - 1 ? 0 : edges.h[r][c];
   const left = c === 0 ? 0 : -edges.v[r][c - 1];
-  const right = c === n - 1 ? 0 : edges.v[r][c];
-  const a = pad, b = pad + tile;
+  const right = c === cols - 1 ? 0 : edges.v[r][c];
+  const a = pad, bx = pad + tw, by = pad + th, D = Math.min(tw, th);
   return `M${a},${a}` +
-    edgePath(a, a, b, a, top, tile) +
-    edgePath(b, a, b, b, right, tile) +
-    edgePath(b, b, a, b, bottom, tile) +
-    edgePath(a, b, a, a, left, tile) + 'Z';
+    edgePath(a, a, bx, a, top, tw, D) +
+    edgePath(bx, a, bx, by, right, th, D) +
+    edgePath(bx, by, a, by, bottom, tw, D) +
+    edgePath(a, by, a, a, left, th, D) + 'Z';
 }
 
 // ───── 웹: 사진첩 사진을 1024 정사각형 JPEG로 ─────
@@ -190,7 +193,8 @@ function Main() {
         const p = { ...DEFAULT_PROGRESS, ...(s ? JSON.parse(s) : {}) };
         // 단계 구성이 바뀌어 조각 수가 안 맞는 '이어서 하기'는 버림
         const r = p.resume;
-        if (r && r.edges?.h?.length !== levelCfg(r.level).n - 1) p.resume = null;
+        const rc = r && levelCfg(r.level);
+        if (r && (r.edges?.h?.length !== rc.r - 1 || r.edges?.v?.[0]?.length !== rc.c - 1)) p.resume = null;
         setProg(p);
       })
       .catch(() => setProg(DEFAULT_PROGRESS));
@@ -345,7 +349,7 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
   // 하다 만 퍼즐이 있으면 '이어서 하기'
   const r = prog.resume;
   const rPhoto = r && (r.key === 'album' ? albumSrc && { name: '내 앨범 사진', src: albumSrc } : PHOTOS.find((x) => x.key === r.key));
-  const rTotal = r ? levelCfg(r.level).n ** 2 : 0;
+  const rTotal = r ? countOf(levelCfg(r.level)) : 0;
 
   return (
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 16, paddingBottom: 24 }}>
@@ -434,9 +438,9 @@ function ChoiceBtn({ icon, title, sub, onPress, onWebFile }) {
 // ───── 게임 ─────
 function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel, onCleared, onExit }) {
   const [pickLevel, setPickLevel] = useState(false); // 단계 고르기 창
-  const { n: N, guide: GUIDE } = levelCfg(level);
-  const total = N * N;
-  const [edges] = useState(() => init?.edges ?? makeEdges(N));
+  const { c: COLS, r: ROWS, guide: GUIDE } = levelCfg(level);
+  const total = COLS * ROWS;
+  const [edges] = useState(() => init?.edges ?? makeEdges(COLS, ROWS));
   const [geom, setGeom] = useState(null); // 판·대기 공간 크기와 위치
   // 조각: { id, state: 'queue'|'tray'|'locked', slot } — 위치는 posRef의 Animated 값
   const [pieces, setPieces] = useState([]);
@@ -461,39 +465,44 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
   function onLayout(e) {
     if (geom) return;
     const { width: W, height: H } = e.nativeEvent.layout;
-    const boardSize = Math.floor(Math.min(W, 520, H * 0.72)); // 폰 가로 끝까지 꽉 채움
-    const tile = boardSize / N;
-    const pad = tile * 0.27;
-    const bx = (W - boardSize) / 2, by = 4;
-    const trayTop = by + boardSize + 10;
+    // 퍼즐판: 폰 가로 끝까지 꽉 채우고, 높이는 칸이 정사각형에 가깝게 (가로의 2/3 ~ 1배)
+    const ratio = Math.min(1, Math.max(2 / 3, ROWS / COLS));
+    const bw = Math.floor(Math.min(W, 520, (H * 0.72) / ratio));
+    const bh = Math.floor(bw * ratio);
+    const tw = bw / COLS, th = bh / ROWS, unit = Math.min(tw, th);
+    const pad = unit * 0.27;
+    const bx = (W - bw) / 2, by = 4;
+    const offY = (bw - bh) / 2; // 정사각형 사진을 판 높이에 맞춰 가운데를 잘라 보여줌
+    const trayTop = by + bh + 10;
     const trayH = H - trayTop;
 
     // 대기 공간: 조각을 최대한 크게, 최대 TRAY_MAX개까지. 조각끼리는 절대 겹치지 않게
     // 한 칸 = 볼록 튀어나온 부분(양쪽 각 0.26)까지 포함한 조각 크기(1.52배) + 여백 4
     // → 이웃 조각의 볼록한 부분이 마주 봐도 닿지 않는 가장 큰 크기
     const want = Math.min(total, TRAY_MAX);
-    const cellOf = (sc) => tile * sc * 1.52 + 4;
+    const cellW_ = (sc) => (tw + unit * 0.52) * sc + 4;
+    const cellH_ = (sc) => (th + unit * 0.52) * sc + 4;
     let s = 0.95, cols = 1, rows = 1;
     for (; s >= 0.25; s -= 0.005) {
-      cols = Math.max(1, Math.floor(W / cellOf(s)));
-      rows = Math.max(1, Math.floor(trayH / cellOf(s)));
+      cols = Math.max(1, Math.floor(W / cellW_(s)));
+      rows = Math.max(1, Math.floor(trayH / cellH_(s)));
       if (cols * rows >= want) break;
     }
     const count = Math.min(want, cols * rows);
     const usedRows = Math.ceil(count / cols);
     const cellW = W / Math.min(cols, count);
-    const cellH = Math.min(trayH / usedRows, cellOf(s) * 1.15); // 남는 높이는 살짝만 나눠 씀
+    const cellH = Math.min(trayH / usedRows, cellH_(s) * 1.15); // 남는 높이는 살짝만 나눠 씀
     const slots = [...Array(count).keys()].map((k) => {
       const col = k % cols, row = Math.floor(k / cols);
       const inRow = Math.min(cols, count - row * cols);
       const rowW = inRow * cellW;
       return {
-        x: (W - rowW) / 2 + col * cellW + cellW / 2 - tile / 2 - pad,
-        y: trayTop + row * cellH + cellH / 2 - tile / 2 - pad,
+        x: (W - rowW) / 2 + col * cellW + cellW / 2 - tw / 2 - pad,
+        y: trayTop + row * cellH + cellH / 2 - th / 2 - pad,
       };
     });
 
-    const g = { W, H, boardSize, tile, pad, bx, by, trayTop, trayScale: s, slots };
+    const g = { W, H, bw, bh, tw, th, unit, pad, bx, by, offY, trayTop, trayScale: s, slots };
     setGeom(g);
 
     // 이어서 하기: 이미 맞춘 조각은 제자리에 고정
@@ -501,7 +510,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
     const ps = [];
     done.forEach((id) => {
       posRef.current[id] = new Animated.ValueXY({
-        x: bx + (id % N) * tile - pad, y: by + Math.floor(id / N) * tile - pad,
+        x: bx + (id % COLS) * tw - pad, y: by + Math.floor(id / COLS) * th - pad,
       });
       ps.push({ id, state: 'locked', slot: null, q: -1 });
     });
@@ -525,8 +534,8 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
   }, [lockedKey, pieces.length]);
 
   const target = (id) => ({
-    x: geom.bx + (id % N) * geom.tile - geom.pad,
-    y: geom.by + Math.floor(id / N) * geom.tile - geom.pad,
+    x: geom.bx + (id % COLS) * geom.tw - geom.pad,
+    y: geom.by + Math.floor(id / COLS) * geom.th - geom.pad,
   });
 
   function grab(id) {
@@ -562,7 +571,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
   function drop(id, x, y) {
     setDragging(null);
     const t = target(id);
-    if (Math.hypot(x - t.x, y - t.y) < geom.tile * 0.55) return lock(id);
+    if (Math.hypot(x - t.x, y - t.y) < geom.unit * 0.55) return lock(id);
     // 제자리가 아니면 대기 공간 원래 자리로 스르르 돌아감
     const me = pieces.find((q) => q.id === id);
     Animated.spring(posRef.current[id], { toValue: geom.slots[me.slot], useNativeDriver: false, speed: 14, bounciness: 4 }).start();
@@ -615,7 +624,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
                     onPress={() => { setPickLevel(false); if (!on) onLevel(lv); }}
                     style={({ pressed }) => [styles.levelItem, on && styles.levelItemOn, pressed && { transform: [{ scale: 0.97 }] }]}>
                     <Text style={[styles.levelItemBig, on && { color: '#fff' }]}>{`${lv}단계`}</Text>
-                    <Text style={[styles.levelItemSub, on && { color: '#fff' }]}>{cfg.n * cfg.n}조각</Text>
+                    <Text style={[styles.levelItemSub, on && { color: '#fff' }]}>{`${countOf(cfg)}조각`}</Text>
                   </Pressable>
                 );
               })}
@@ -644,14 +653,14 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
       <View style={{ flex: 1, marginHorizontal: -16 }} onLayout={onLayout}>
         {geom && (
           <>
-            <View style={[styles.board, { left: geom.bx, top: geom.by, width: geom.boardSize, height: geom.boardSize }]}>
+            <View style={[styles.board, { left: geom.bx, top: geom.by, width: geom.bw, height: geom.bh }]}>
               {/* 흐린 밑그림: 어디에 놓을지 힌트 */}
-              <Image source={photo} style={{ position: 'absolute', width: geom.boardSize, height: geom.boardSize, opacity: GUIDE }} />
+              <Image source={photo} style={{ position: 'absolute', top: -geom.offY, width: geom.bw, height: geom.bw, opacity: GUIDE }} />
               {/* 퍼즐판 바탕: 조각이 들어갈 자리를 직소 모양 선으로 */}
-              <Svg width={geom.boardSize} height={geom.boardSize} style={{ position: 'absolute' }}>
+              <Svg width={geom.bw} height={geom.bh} style={{ position: 'absolute' }}>
                 {[...Array(total).keys()].map((id) => (
-                  <G key={`slot${id}`} transform={`translate(${(id % N) * geom.tile - geom.pad},${Math.floor(id / N) * geom.tile - geom.pad})`}>
-                    <Path d={piecePath(id, N, edges, geom.tile, geom.pad)} fill="none"
+                  <G key={`slot${id}`} transform={`translate(${(id % COLS) * geom.tw - geom.pad},${Math.floor(id / COLS) * geom.th - geom.pad})`}>
+                    <Path d={piecePath(id, COLS, ROWS, edges, geom.tw, geom.th, geom.pad)} fill="none"
                       stroke="#9b9b9b" strokeWidth={2} />
                   </G>
                 ))}
@@ -666,7 +675,8 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
                 p={byId[id]}
                 pos={posRef.current[id]}
                 geom={geom}
-                N={N}
+                cols={COLS}
+                rows={ROWS}
                 edges={edges}
                 photo={photo}
                 clipId={`c${level}-${id}`}
@@ -677,8 +687,9 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
             ))}
 
             {peek && (
-              <Image source={photo} pointerEvents="none"
-                style={{ position: 'absolute', left: geom.bx, top: geom.by, width: geom.boardSize, height: geom.boardSize }} />
+              <View pointerEvents="none" style={[styles.board, { left: geom.bx, top: geom.by, width: geom.bw, height: geom.bh }]}>
+                <Image source={photo} style={{ position: 'absolute', top: -geom.offY, width: geom.bw, height: geom.bw }} />
+              </View>
             )}
           </>
         )}
@@ -700,7 +711,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
             {!isMax && (
               <View style={styles.nextInfo}>
                 <Text style={{ color: C.ink, textAlign: 'center', fontSize: 17 }}>
-                  다음 단계는 <Text style={{ fontWeight: '800' }}>{next.n * next.n}조각</Text>이에요
+                  다음 단계는 <Text style={{ fontWeight: '800' }}>{countOf(next)}조각</Text>이에요
                 </Text>
               </View>
             )}
@@ -715,10 +726,10 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
 }
 
 // ───── 조각 하나 ─────
-function Piece({ p, pos, geom, N, edges, photo, clipId, lifted, onGrab, onDrop }) {
-  const { tile, pad, boardSize } = geom;
-  const size = tile + pad * 2;
-  const d = useMemo(() => piecePath(p.id, N, edges, tile, pad), [p.id, N, edges, tile, pad]);
+function Piece({ p, pos, geom, cols, rows, edges, photo, clipId, lifted, onGrab, onDrop }) {
+  const { tw, th, pad, bw, offY } = geom;
+  const sw = tw + pad * 2, sh = th + pad * 2;
+  const d = useMemo(() => piecePath(p.id, cols, rows, edges, tw, th, pad), [p.id, cols, rows, edges, tw, th, pad]);
   const locked = p.state === 'locked';
 
   // 대기 공간에 새로 나올 때 살짝 커지며 나타남
@@ -741,7 +752,7 @@ function Piece({ p, pos, geom, N, edges, photo, clipId, lifted, onGrab, onDrop }
     onPanResponderTerminate: (_, g) => cb.current.onDrop(cb.current.p.id, pan.start.x + g.dx, pan.start.y + g.dy),
   })).current;
 
-  const cx = p.id % N, cy = Math.floor(p.id / N);
+  const cx = p.id % cols, cy = Math.floor(p.id / cols);
   const baseScale = lifted ? 1.06 : locked ? 1 : geom.trayScale;
   const scale = locked || lifted ? baseScale : Animated.multiply(appear, baseScale);
   return (
@@ -749,11 +760,11 @@ function Piece({ p, pos, geom, N, edges, photo, clipId, lifted, onGrab, onDrop }
       {...pan.panHandlers}
       pointerEvents={locked ? 'none' : 'auto'}
       style={[styles.piece, lifted && styles.lifted, {
-        width: size, height: size,
+        width: sw, height: sh,
         transform: [...pos.getTranslateTransform(), { scale }],
       }]}
     >
-      <Svg width={size} height={size}>
+      <Svg width={sw} height={sh}>
         <Defs>
           <ClipPath id={clipId}>
             <Path d={d} />
@@ -761,10 +772,10 @@ function Piece({ p, pos, geom, N, edges, photo, clipId, lifted, onGrab, onDrop }
         </Defs>
         <SvgImage
           href={photo}
-          x={pad - cx * tile}
-          y={pad - cy * tile}
-          width={boardSize}
-          height={boardSize}
+          x={pad - cx * tw}
+          y={pad - cy * th - offY}
+          width={bw}
+          height={bw}
           clipPath={`url(#${clipId})`}
           preserveAspectRatio="none"
         />
