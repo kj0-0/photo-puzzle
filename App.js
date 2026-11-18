@@ -42,7 +42,7 @@ const LEVELS = [
   { n: 5, guide: 0.1 },
 ];
 const levelCfg = (lv) => LEVELS[Math.min(lv, LEVELS.length) - 1];
-const TRAY_MAX = 6; // 판 아래에 한 번에 꺼내 두는 조각 수
+const TRAY_MAX = 8; // 판 아래에 한 번에 꺼내 두는 조각 수
 
 const C = {
   // 흰 바탕 + 검정 글자 + 형광 연두 포인트 (빨강 계열은 쓰지 않음)
@@ -458,18 +458,20 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onCleare
     const trayTop = by + boardSize + 10;
     const trayH = H - trayTop;
 
-    // 대기 공간: 조각을 최대한 크게, 최소 min(전체, 6)개는 보이게
+    // 대기 공간: 조각을 최대한 크게, 최대 TRAY_MAX개까지. 조각끼리는 절대 겹치지 않게
+    // 한 칸 = 볼록 튀어나온 부분까지 포함한 조각 크기(1.5배) + 여백 10
     const want = Math.min(total, TRAY_MAX);
+    const cellOf = (sc) => tile * sc * 1.5 + 10;
     let s = 0.95, cols = 1, rows = 1;
-    for (; s >= 0.45; s -= 0.01) {
-      const cell = tile * s * 1.4; // 볼록한 부분까지 포함한 간격
-      cols = Math.max(1, Math.floor(W / cell));
-      rows = Math.max(1, Math.floor(trayH / cell));
+    for (; s >= 0.25; s -= 0.01) {
+      cols = Math.max(1, Math.floor(W / cellOf(s)));
+      rows = Math.max(1, Math.floor(trayH / cellOf(s)));
       if (cols * rows >= want) break;
     }
     const count = Math.min(want, cols * rows);
     const usedRows = Math.ceil(count / cols);
-    const cellW = W / Math.min(cols, count), cellH = Math.min(trayH / usedRows, tile * s * 1.5);
+    const cellW = W / Math.min(cols, count);
+    const cellH = Math.min(trayH / usedRows, cellOf(s) * 1.15); // 남는 높이는 살짝만 나눠 씀
     const slots = [...Array(count).keys()].map((k) => {
       const col = k % cols, row = Math.floor(k / cols);
       const inRow = Math.min(cols, count - row * cols);
