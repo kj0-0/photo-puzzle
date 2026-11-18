@@ -459,11 +459,12 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onCleare
     const trayH = H - trayTop;
 
     // 대기 공간: 조각을 최대한 크게, 최대 TRAY_MAX개까지. 조각끼리는 절대 겹치지 않게
-    // 한 칸 = 볼록 튀어나온 부분까지 포함한 조각 크기(1.5배) + 여백 10
+    // 한 칸 = 볼록 튀어나온 부분(양쪽 각 0.26)까지 포함한 조각 크기(1.52배) + 여백 4
+    // → 이웃 조각의 볼록한 부분이 마주 봐도 닿지 않는 가장 큰 크기
     const want = Math.min(total, TRAY_MAX);
-    const cellOf = (sc) => tile * sc * 1.5 + 10;
+    const cellOf = (sc) => tile * sc * 1.52 + 4;
     let s = 0.95, cols = 1, rows = 1;
-    for (; s >= 0.25; s -= 0.01) {
+    for (; s >= 0.25; s -= 0.005) {
       cols = Math.max(1, Math.floor(W / cellOf(s)));
       rows = Math.max(1, Math.floor(trayH / cellOf(s)));
       if (cols * rows >= want) break;
