@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "photo-puzzle",
+    "name": "포토 퍼즐",
     "slug": "photo-puzzle",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -19,6 +19,9 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-audio"
+    ]
   }
 }

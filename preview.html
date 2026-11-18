@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>포토 퍼즐 미리보기</title>
+<style>
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; gap: 48px;
+    background: radial-gradient(circle at 30% 20%, #3a3532, #1b1918); font-family: -apple-system, "Apple SD Gothic Neo", sans-serif; color: #eee; }
+  .phone { width: 360px; height: 780px; border-radius: 36px; padding: 10px; background: #0d0d0d;
+    box-shadow: 0 0 0 2px #444, 0 30px 80px rgba(0,0,0,.6); position: relative; }
+  .phone::before { content: ""; position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+    width: 12px; height: 12px; border-radius: 50%; background: #000; z-index: 2; }
+  .status { position: absolute; top: 10px; left: 10px; right: 10px; height: 32px; display: flex; align-items: center;
+    justify-content: space-between; padding: 0 22px; font-size: 13px; font-weight: 600; color: #222; z-index: 1; pointer-events: none; }
+  iframe { width: 100%; height: 100%; border: 0; border-radius: 28px; background: #ffffff; }
+  .side { max-width: 260px; line-height: 1.6; font-size: 14px; color: #bbb; }
+  .side h2 { color: #fff; font-size: 18px; margin: 0 0 8px; }
+  .side button { margin-top: 12px; padding: 10px 14px; border-radius: 10px; border: 0; background: #c6f432; color: #111;
+    font-weight: 700; cursor: pointer; }
+  @media (max-width: 760px) { .side { display: none; } }
+</style>
+</head>
+<body>
+  <div class="phone"><div class="status"><span>12:30</span><span>📶 🔋</span></div><iframe id="app" src="http://localhost:8081"></iframe></div>
+  <div class="side">
+    <h2>🧩 포토 퍼즐 미리보기</h2>
+    <p>갤럭시 S24 크기(360×780)로 띄운 실제 앱이에요. 맨 위 시계·배터리 줄은 폰 상태표시줄 자리예요. 마우스로 조각을 끌어서 판 위 제자리에 놓아 보세요.</p>
+    <p>코드를 고치면 자동으로 새로고침돼요.</p>
+    <button onclick="document.getElementById('app').src='http://localhost:8081'">↻ 처음부터</button>
+  </div>
+</body>
+</html>
