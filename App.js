@@ -119,6 +119,40 @@ function piecePath(id, n, edges, tile, pad) {
     edgePath(a, b, a, a, left, tile) + 'Z';
 }
 
+// ───── 웹: 사진첩 사진을 1024 정사각형 JPEG로 ─────
+// 아이폰 사진(HEIC/HEIF)은 크롬이 못 열어서 JPEG로 바꾼 뒤 처리.
+// 아주 큰 사진(4800만 화소 등)도 폰 브라우저 한도에 걸리지 않게 바로 1024 크기로 줄여 그림.
+const isHeic = (f) => /hei[cf]/i.test(f.type) || /\.hei[cf]$/i.test(f.name || '');
+
+function loadWebImage(blob) {
+  return new Promise((ok, fail) => {
+    const url = URL.createObjectURL(blob);
+    const im = new window.Image();
+    im.onload = () => ok(im);
+    im.onerror = () => fail(new Error('decode'));
+    im.src = url;
+  });
+}
+
+async function webPhotoToSquare(file) {
+  let im;
+  try {
+    im = await loadWebImage(file); // 사파리는 HEIC도 바로 열림
+  } catch (e) {
+    if (!isHeic(file)) throw e;
+    const { heicTo } = await import('heic-to');
+    const jpg = await heicTo({ blob: file, type: 'image/jpeg', quality: 0.9 });
+    im = await loadWebImage(jpg);
+  }
+  const w = im.naturalWidth, h = im.naturalHeight, s = Math.min(w, h);
+  const out = Math.min(1024, s);
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = out;
+  cv.getContext('2d').drawImage(im, (w - s) / 2, (h - s) / 2, s, s, 0, 0, out, out);
+  URL.revokeObjectURL(im.src);
+  return cv.toDataURL('image/jpeg', 0.85);
+}
+
 // ───── 앱 ─────
 export default function App() {
   return (
@@ -196,7 +230,8 @@ function Main() {
     try {
       await job();
       setNotice(null);
-    } catch {
+    } catch (e) {
+      console.warn('사진 처리 실패', e?.message ?? JSON.stringify(e));
       setNotice({ busy: false, text: '이 사진은 열 수 없어요.\n다른 사진을 골라 주세요.' });
     }
   }
@@ -205,15 +240,8 @@ function Main() {
   async function pickWebFile(file) {
     if (!file) return;
     await withNotice(async () => {
-      // 크롬은 아이폰 기본 형식(HEIC) 사진을 열지 못해서, 이 경우 실패 안내가 나옴
-      const uri = URL.createObjectURL(file);
-      const size = await new Promise((ok, fail) => {
-        const im = new window.Image();
-        im.onload = () => ok({ width: im.naturalWidth, height: im.naturalHeight });
-        im.onerror = () => fail(new Error('decode'));
-        im.src = uri;
-      });
-      await startFromPhoto({ uri, ...size });
+      const uri = await webPhotoToSquare(file);
+      savePhotoAndPlay(uri);
     });
   }
 
@@ -228,8 +256,11 @@ function Main() {
       ],
       { compress: 0.85, format: SaveFormat.JPEG, base64: true },
     );
-    // 다음에 '이어서 하기'로 다시 불러올 수 있게 그림 자체를 저장
-    const uri = `data:image/jpeg;base64,${out.base64}`;
+    savePhotoAndPlay(`data:image/jpeg;base64,${out.base64}`);
+  }
+
+  // 다음에 '이어서 하기'로 다시 불러올 수 있게 그림 자체를 저장하고 퍼즐 시작
+  function savePhotoAndPlay(uri) {
     AsyncStorage.setItem(ALBUM_KEY, uri).catch(() => {});
     setAlbumSrc({ uri });
     play({ key: 'album', src: { uri } }, prog.level);
