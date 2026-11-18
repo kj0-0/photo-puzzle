@@ -32,14 +32,16 @@ const SOUNDS = {
 
 // ───── 단계 설계 (어르신용: 천천히 어려워짐, 회전 없음) ─────
 // n: 가로세로 조각 수, guide: 판에 깔리는 흐린 밑그림 진하기
+// 단계: 9조각부터 36조각까지. 같은 조각 수에서는 밑그림을 더 흐리게 해서 조금씩 어렵게
 const LEVELS = [
-  { n: 2, guide: 0.45 },
-  { n: 3, guide: 0.45 },
-  { n: 3, guide: 0.25 },
-  { n: 4, guide: 0.3 },
-  { n: 4, guide: 0.15 },
-  { n: 5, guide: 0.2 },
-  { n: 5, guide: 0.1 },
+  { n: 3, guide: 0.45 }, // 1단계  9조각
+  { n: 3, guide: 0.25 }, // 2단계  9조각
+  { n: 4, guide: 0.35 }, // 3단계 16조각
+  { n: 4, guide: 0.2 },  // 4단계 16조각
+  { n: 5, guide: 0.3 },  // 5단계 25조각
+  { n: 5, guide: 0.15 }, // 6단계 25조각
+  { n: 6, guide: 0.25 }, // 7단계 36조각
+  { n: 6, guide: 0.12 }, // 8단계 36조각
 ];
 const levelCfg = (lv) => LEVELS[Math.min(lv, LEVELS.length) - 1];
 const TRAY_MAX = 8; // 판 아래에 한 번에 꺼내 두는 조각 수
@@ -184,7 +186,13 @@ function Main() {
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
     AsyncStorage.getItem(STORE_KEY)
-      .then((s) => setProg({ ...DEFAULT_PROGRESS, ...(s ? JSON.parse(s) : {}) }))
+      .then((s) => {
+        const p = { ...DEFAULT_PROGRESS, ...(s ? JSON.parse(s) : {}) };
+        // 단계 구성이 바뀌어 조각 수가 안 맞는 '이어서 하기'는 버림
+        const r = p.resume;
+        if (r && r.edges?.h?.length !== levelCfg(r.level).n - 1) p.resume = null;
+        setProg(p);
+      })
       .catch(() => setProg(DEFAULT_PROGRESS));
     AsyncStorage.getItem(ALBUM_KEY).then((u) => u && setAlbumSrc({ uri: u })).catch(() => {});
   }, []);
