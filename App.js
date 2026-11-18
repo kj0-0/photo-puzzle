@@ -369,17 +369,8 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
         </Pressable>
       </View>
 
-      {/* 성공 뱃지: 받았으면 뱃지, 아니면 남은 단계 (한 번이라도 완성한 뒤부터) */}
-      {prog.badge ? (
-        <View style={styles.badgeCard}>
-          <SuccessBadge size={64} />
-          <View style={{ flex: 1, gap: 2 }}>
-            <Text style={styles.badgeTitle}>성공 뱃지</Text>
-            <Text style={styles.badgeSub}>8단계를 완성했어요</Text>
-            <Text style={styles.badgeSub}>{prog.badge.replace(/^(\d+)-(\d+)-(\d+)$/, (_, y, m, d) => `${y}년 ${+m}월 ${+d}일`)}</Text>
-          </View>
-        </View>
-      ) : Object.keys(prog.cleared || {}).length > 0 && (
+      {/* 성공 뱃지까지의 진행 (한 번이라도 완성한 뒤부터, 뱃지를 받으면 숨김) */}
+      {!prog.badge && Object.keys(prog.cleared || {}).length > 0 && (
         <View style={styles.badgeCard}>
           <SuccessBadge size={52} dim />
           <View style={{ flex: 1, gap: 6 }}>
