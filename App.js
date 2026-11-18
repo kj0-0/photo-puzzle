@@ -293,6 +293,7 @@ function Main() {
             onProgress={saveProgress}
             onNext={() => play(photo, Math.min(level + 1, LEVELS.length))}
             onRetry={() => play(photo, level)}
+            onLevel={(lv) => { update((p) => ({ ...p, level: lv })); play(photo, lv); }}
             onCleared={cleared}
             onExit={() => setPhoto(null)}
           />
@@ -423,7 +424,8 @@ function ChoiceBtn({ icon, title, sub, onPress, onWebFile }) {
 }
 
 // ───── 게임 ─────
-function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onCleared, onExit }) {
+function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel, onCleared, onExit }) {
+  const [pickLevel, setPickLevel] = useState(false); // 단계 고르기 창
   const { n: N, guide: GUIDE } = levelCfg(level);
   const total = N * N;
   const [edges] = useState(() => init?.edges ?? makeEdges(N));
@@ -585,8 +587,35 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onCleare
         <Pressable onPress={onExit} hitSlop={10} style={styles.backBtn}>
           <Text style={styles.backText}>‹ 사진 바꾸기</Text>
         </Pressable>
-        <Text style={styles.gameLevel}>{level}단계</Text>
+        {/* 누르면 단계를 고를 수 있음 */}
+        <Pressable onPress={() => setPickLevel(true)} hitSlop={10}
+          style={({ pressed }) => [styles.levelBtn, pressed && { backgroundColor: C.soft }]}>
+          <Text style={styles.gameLevel}>{`${level}단계 ▾`}</Text>
+        </Pressable>
       </View>
+
+      <Modal transparent visible={pickLevel} animationType="fade" onRequestClose={() => setPickLevel(false)}>
+        <Pressable style={styles.modalBg} onPress={() => setPickLevel(false)}>
+          <Pressable style={styles.sheet} onPress={() => {}}>
+            <Text style={[styles.h2, { textAlign: 'center' }]}>단계 고르기</Text>
+            <Text style={[styles.sub, { textAlign: 'center' }]}>숫자가 클수록 조각이 많아요</Text>
+            <View style={styles.levelGrid}>
+              {LEVELS.map((cfg, i) => {
+                const lv = i + 1, on = lv === level;
+                return (
+                  <Pressable key={lv}
+                    onPress={() => { setPickLevel(false); if (!on) onLevel(lv); }}
+                    style={({ pressed }) => [styles.levelItem, on && styles.levelItemOn, pressed && { transform: [{ scale: 0.97 }] }]}>
+                    <Text style={[styles.levelItemBig, on && { color: '#fff' }]}>{`${lv}단계`}</Text>
+                    <Text style={[styles.levelItemSub, on && { color: '#fff' }]}>{cfg.n * cfg.n}조각</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+            <Btn label="닫기" onPress={() => setPickLevel(false)} />
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* 진행 막대 */}
       <View>
@@ -786,7 +815,13 @@ const styles = StyleSheet.create({
   basicHead: { gap: 12, alignItems: 'flex-start' },
   backBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 26, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
   backText: { fontSize: 17, fontWeight: '700', color: C.ink },
-  gameLevel: { fontSize: 22, fontWeight: '800', color: C.ink },
+  gameLevel: { fontSize: 20, fontWeight: '800', color: C.ink },
+  levelBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 26, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
+  levelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
+  levelItem: { width: '48%', flexGrow: 1, minHeight: 70, borderRadius: 16, borderWidth: 2, borderColor: C.line, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  levelItemOn: { backgroundColor: C.ink, borderColor: C.ink },
+  levelItemBig: { fontSize: 20, fontWeight: '800', color: C.ink },
+  levelItemSub: { fontSize: 15, fontWeight: '600', color: C.muted },
   progressBg: { height: 18, borderRadius: 9, backgroundColor: '#ececec', borderWidth: 1, borderColor: '#d4d4d4', overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: C.accent, borderRadius: 9 },
   progressText: { fontSize: 17, fontWeight: '800', color: C.ink, marginTop: 8, textAlign: 'center' },
