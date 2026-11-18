@@ -48,6 +48,7 @@ const levelCfg = (lv) => LEVELS[Math.min(lv, LEVELS.length) - 1];
 const countOf = (cfg) => cfg.c * cfg.r;
 const TRAY_MAX = 8; // 판 아래에 한 번에 꺼내 두는 조각 수
 
+// 모서리 둥글기는 전체 8px로 통일 (동그란 뱃지·점, 알약 모양 소리 버튼 제외)
 const C = {
   // 흰 바탕 + 검정 글자 + 형광 연두 포인트 (빨강 계열은 쓰지 않음)
   // 연두 위에는 흰 글자 대신 검정 글자를 써서 어르신 눈에도 또렷하게
@@ -69,7 +70,9 @@ const buzz = (kind) => {
 
 // ───── 기록 저장 ─────
 const STORE_KEY = 'photo-puzzle-progress-v1';
-const DEFAULT_PROGRESS = { unlocked: 1, level: 1, done: {}, days: {}, sound: true, resume: null };
+const DEFAULT_PROGRESS = { unlocked: 1, level: 1, done: {}, days: {}, sound: true, resume: null, cleared: {}, badge: null };
+// cleared: 완성한 단계 { 1: true, ... }, badge: 8단계를 모두 완성해 성공 뱃지를 받은 날 (YYYY-MM-DD)
+const allCleared = (cl) => LEVELS.every((_, i) => cl?.[i + 1]);
 // resume: 하다 만 퍼즐 { key, level, edges, locked:[조각 번호] } — 다 맞추면 null
 const ALBUM_KEY = 'photo-puzzle-album-v1'; // 앨범 사진(작게 줄인 data URI)은 따로 저장
 const dayKey = (d = new Date()) =>
@@ -181,7 +184,8 @@ function Main() {
   const [level, setLevel] = useState(1); // 지금 하고 있는 퍼즐의 단계
   const [init, setInit] = useState(null); // 이어서 하기일 때 이미 맞춘 조각 정보
   const [albumSrc, setAlbumSrc] = useState(null);
-  const [notice, setNotice] = useState(null); // 사진 준비 중/실패 안내 { busy, text }
+  const [notice, setNotice] = useState(null);
+  const [newBadge, setNewBadge] = useState(false); // 방금 성공 뱃지를 받았는지 (완성 창에 크게 보여줌) // 사진 준비 중/실패 안내 { busy, text }
   const [round, setRound] = useState(0);
   const [showBasic, setShowBasic] = useState(false); // 첫 화면에서 '기본 사진' 목록을 펼쳤는지
   const [prog, setProg] = useState(null); // 저장된 기록 (불러오기 전엔 null)
@@ -202,6 +206,7 @@ function Main() {
   }, []);
 
   function play(ph, lv, resume = null) {
+    setNewBadge(false);
     setPhoto(ph);
     setLevel(lv);
     setInit(resume);
@@ -279,8 +284,13 @@ function Main() {
   }
 
   function cleared(level) {
+    const cl = { ...prog.cleared, [level]: true };
+    const earned = !prog.badge && allCleared(cl);
+    if (earned) setNewBadge(true);
     update((p) => ({
       ...p,
+      cleared: { ...p.cleared, [level]: true },
+      badge: p.badge || (allCleared({ ...p.cleared, [level]: true }) ? dayKey() : null),
       unlocked: Math.min(LEVELS.length, Math.max(p.unlocked, level + 1)),
       level: Math.min(LEVELS.length, Math.max(p.level, level + 1)), // 새 그림은 다음 단계로 시작
       resume: null,
@@ -307,6 +317,7 @@ function Main() {
             onRetry={() => play(photo, level)}
             onLevel={(lv) => { update((p) => ({ ...p, level: lv })); play(photo, lv); }}
             onCleared={cleared}
+            newBadge={newBadge}
             onExit={() => setPhoto(null)}
           />
         ) : (
@@ -359,6 +370,34 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
           <Text style={styles.soundText}>{prog.sound ? '🔊 소리 켬' : '🔇 소리 끔'}</Text>
         </Pressable>
       </View>
+
+      {/* 성공 뱃지: 받았으면 뱃지, 아니면 남은 단계 (한 번이라도 완성한 뒤부터) */}
+      {prog.badge ? (
+        <View style={styles.badgeCard}>
+          <SuccessBadge size={64} />
+          <View style={{ flex: 1, gap: 2 }}>
+            <Text style={styles.badgeTitle}>성공 뱃지</Text>
+            <Text style={styles.badgeSub}>8단계를 모두 완성했어요</Text>
+            <Text style={styles.badgeSub}>{prog.badge.replace(/^(\d+)-(\d+)-(\d+)$/, (_, y, m, d) => `${y}년 ${+m}월 ${+d}일`)}</Text>
+          </View>
+        </View>
+      ) : Object.keys(prog.cleared || {}).length > 0 && (
+        <View style={styles.badgeCard}>
+          <SuccessBadge size={52} dim />
+          <View style={{ flex: 1, gap: 6 }}>
+            <Text style={styles.badgeTitle}>
+              {`성공 뱃지까지 ${LEVELS.length - Object.keys(prog.cleared).length}단계 남았어요`}
+            </Text>
+            <View style={styles.dots}>
+              {LEVELS.map((_, i) => (
+                <View key={i} style={[styles.dot, prog.cleared[i + 1] && styles.dotOn]}>
+                  <Text style={[styles.dotText, prog.cleared[i + 1] && { color: C.onAccent }]}>{i + 1}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* 오늘의 기록 — 완성한 적이 있을 때만 */}
       {(today > 0 || streak >= 2) && (
@@ -414,6 +453,26 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
   );
 }
 
+// 성공 뱃지: 연두 원 + 트로피, 아래 '성공' 띠. dim이면 아직 못 받은 흐린 모양
+function SuccessBadge({ size = 80, dim = false }) {
+  return (
+    <View style={{ width: size, alignItems: 'center', alignSelf: 'center', opacity: dim ? 0.35 : 1 }}>
+      <View style={{
+        width: size, height: size, borderRadius: size / 2, backgroundColor: C.accent,
+        borderWidth: Math.max(3, size / 20), borderColor: C.ink, alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Text style={{ fontSize: size * 0.48 }}>🏆</Text>
+      </View>
+      <View style={{
+        marginTop: -size * 0.14, backgroundColor: C.ink, borderRadius: 8,
+        paddingHorizontal: size * 0.14, paddingVertical: size * 0.03,
+      }}>
+        <Text style={{ color: '#fff', fontWeight: '800', fontSize: Math.max(12, size * 0.16) }}>성공</Text>
+      </View>
+    </View>
+  );
+}
+
 function ChoiceBtn({ icon, title, sub, onPress, onWebFile }) {
   // 웹에서는 브라우저가 직접 누른 것으로 인정하도록 투명한 파일 선택 칸을 버튼 위에 겹침
   const webInput = Platform.OS === 'web' && onWebFile;
@@ -425,7 +484,7 @@ function ChoiceBtn({ icon, title, sub, onPress, onWebFile }) {
         <Text style={styles.choiceTitle}>{title}</Text>
         <Text style={styles.choiceSub} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.85}>{sub}</Text>
       </View>
-      <Text style={styles.choiceArrow}>›</Text>
+      <Text style={styles.choiceArrow}>▶</Text>
       {webInput && (
         <input type="file" accept="image/*" aria-label={title}
           onChange={(e) => { onWebFile(e.target.files?.[0]); e.target.value = ''; }}
@@ -436,7 +495,7 @@ function ChoiceBtn({ icon, title, sub, onPress, onWebFile }) {
 }
 
 // ───── 게임 ─────
-function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel, onCleared, onExit }) {
+function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel, onCleared, onExit, newBadge }) {
   const [pickLevel, setPickLevel] = useState(false); // 단계 고르기 창
   const { c: COLS, r: ROWS, guide: GUIDE } = levelCfg(level);
   const total = COLS * ROWS;
@@ -703,8 +762,18 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
       <Modal transparent visible={showModal} animationType="fade">
         <View style={styles.modalBg}>
           <View style={styles.sheet}>
-            <Image source={photo} style={styles.doneImg} />
-            <Text style={[styles.h2, { textAlign: 'center' }]}>참 잘하셨어요! 🎉</Text>
+            {newBadge ? (
+              <>
+                <SuccessBadge size={120} />
+                <Text style={[styles.h2, { textAlign: 'center' }]}>성공 뱃지를 받았어요! 🎉</Text>
+                <Text style={[styles.sub, { textAlign: 'center' }]}>1단계부터 8단계까지{'\n'}모두 완성하셨어요. 정말 대단해요!</Text>
+              </>
+            ) : (
+              <>
+                <Image source={photo} style={styles.doneImg} />
+                <Text style={[styles.h2, { textAlign: 'center' }]}>참 잘하셨어요! 🎉</Text>
+              </>
+            )}
             <Text style={[styles.sub, { textAlign: 'center', fontSize: 18 }]}>
               {level}단계 그림을 완성했어요{'\n'}{doneAt ? fmt(doneAt - start) : ''} 걸렸어요
             </Text>
@@ -807,42 +876,49 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   soundBtn: { backgroundColor: C.card, borderWidth: 2, borderColor: C.line, borderRadius: 26, paddingHorizontal: 16, minHeight: 52, justifyContent: 'center' },
   soundText: { fontSize: 17, fontWeight: '700', color: C.ink },
-  todayCard: { backgroundColor: C.soft, borderRadius: 18, padding: 16, gap: 4 },
+  badgeCard: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.card, borderRadius: 8, borderWidth: 2, borderColor: C.line, padding: 14 },
+  badgeTitle: { fontSize: 18, fontWeight: '800', color: C.ink },
+  badgeSub: { fontSize: 15, color: C.muted, fontWeight: '600' },
+  dots: { flexDirection: 'row', flexWrap: 'wrap', gap: 4 },
+  dot: { width: 23, height: 23, borderRadius: 12, borderWidth: 2, borderColor: C.line, alignItems: 'center', justifyContent: 'center' },
+  dotOn: { backgroundColor: C.accent, borderColor: C.ink },
+  dotText: { fontSize: 12, fontWeight: '800', color: C.muted },
+  todayCard: { backgroundColor: C.soft, borderRadius: 8, padding: 16, gap: 4 },
   todayBig: { fontSize: 20, fontWeight: '800', color: C.ink },
   todaySub: { fontSize: 17, color: C.muted, fontWeight: '600' },
   sectionTitle: { fontSize: 21, fontWeight: '800', color: C.ink, marginTop: 4 },
   photoGrid: { gap: 14 },
-  photoCard: { width: '100%', backgroundColor: C.card, borderRadius: 18, borderWidth: 2, borderColor: C.line, overflow: 'hidden' },
+  photoCard: { width: '100%', backgroundColor: C.card, borderRadius: 8, borderWidth: 2, borderColor: C.line, overflow: 'hidden' },
   photoName: { fontSize: 19, fontWeight: '800', color: C.ink, textAlign: 'center', paddingVertical: 14 },
   doneBadge: {
     position: 'absolute', top: 8, right: 8, backgroundColor: C.accent, color: C.onAccent, fontWeight: '800',
-    fontSize: 17, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, overflow: 'hidden',
+    fontSize: 17, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8, overflow: 'hidden',
   },
 
   // 게임 화면
   gameTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  resume: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.accent, borderRadius: 20, padding: 14 },
-  resumeImg: { width: 100, height: 100, borderRadius: 14, backgroundColor: C.soft },
+  resume: { flexDirection: 'row', alignItems: 'center', gap: 14, backgroundColor: C.accent, borderRadius: 8, padding: 14 },
+  resumeImg: { width: 100, height: 100, borderRadius: 8, backgroundColor: C.soft },
   resumeTitle: { fontSize: 24, fontWeight: '800', color: C.onAccent },
   resumeSub: { fontSize: 17, color: C.onAccent, fontWeight: '600' },
-  choice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderRadius: 20,
+  choice: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: C.card, borderRadius: 8,
     paddingVertical: 22, paddingHorizontal: 14, borderWidth: 2, borderColor: C.line, minHeight: 104 },
   choiceIcon: { fontSize: 32 },
   choiceTitle: { fontSize: 20, fontWeight: '800', color: C.ink },
   choiceSub: { fontSize: 15, color: C.muted, lineHeight: 22 },
-  choiceArrow: { fontSize: 34, color: C.ink, fontWeight: '700' },
+  choiceArrow: { fontSize: 18, color: C.ink },
   basicHead: { gap: 12, alignItems: 'flex-start' },
-  backBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 26, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
+  backBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 8, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
   backText: { fontSize: 17, fontWeight: '700', color: C.ink },
   gameLevel: { fontSize: 20, fontWeight: '800', color: C.ink },
-  levelBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 26, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
+  levelBtn: { minHeight: 52, paddingHorizontal: 16, borderRadius: 8, borderWidth: 2, borderColor: C.line, backgroundColor: C.card, justifyContent: 'center' },
   levelGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 },
-  levelItem: { width: '48%', flexGrow: 1, minHeight: 70, borderRadius: 16, borderWidth: 2, borderColor: C.line, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
+  levelItem: { width: '48%', flexGrow: 1, minHeight: 70, borderRadius: 8, borderWidth: 2, borderColor: C.line, alignItems: 'center', justifyContent: 'center', paddingVertical: 8 },
   levelItemOn: { backgroundColor: C.ink, borderColor: C.ink },
   levelItemBig: { fontSize: 20, fontWeight: '800', color: C.ink },
   levelItemSub: { fontSize: 15, fontWeight: '600', color: C.muted },
-  progressBg: { height: 18, borderRadius: 9, backgroundColor: '#ececec', borderWidth: 1, borderColor: '#d4d4d4', overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: C.accent, borderRadius: 9 },
+  progressBg: { height: 18, borderRadius: 8, backgroundColor: '#ececec', borderWidth: 1, borderColor: '#d4d4d4', overflow: 'hidden' },
+  progressFill: { height: '100%', backgroundColor: C.accent, borderRadius: 8 },
   progressText: { fontSize: 17, fontWeight: '800', color: C.ink, marginTop: 8, textAlign: 'center' },
   board: { position: 'absolute', overflow: 'hidden', backgroundColor: C.board },
   tray: { position: 'absolute', left: 0, right: 0, bottom: 0, backgroundColor: C.tray },
@@ -851,13 +927,13 @@ const styles = StyleSheet.create({
   lifted: { shadowColor: '#000', shadowOpacity: 0.3, shadowRadius: 10, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
   controls: { flexDirection: 'row', gap: 10 },
   btn: {
-    minHeight: 64, paddingVertical: 16, paddingHorizontal: 12, borderRadius: 16, justifyContent: 'center', backgroundColor: C.card,
+    minHeight: 64, paddingVertical: 16, paddingHorizontal: 12, borderRadius: 8, justifyContent: 'center', backgroundColor: C.card,
     borderWidth: 2, borderColor: C.line, alignItems: 'center',
   },
   btnPrimary: { backgroundColor: C.ink, borderColor: C.ink }, // 가장 중요한 버튼은 검정 + 흰 글자
   btnText: { fontWeight: '800', color: C.ink, fontSize: 18 },
   modalBg: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  sheet: { backgroundColor: C.card, borderRadius: 22, padding: 20, width: '100%', maxWidth: 380, gap: 10 },
-  doneImg: { width: 150, height: 150, borderRadius: 14, alignSelf: 'center' },
-  nextInfo: { backgroundColor: C.soft, borderRadius: 12, padding: 12 },
+  sheet: { backgroundColor: C.card, borderRadius: 8, padding: 20, width: '100%', maxWidth: 380, gap: 10 },
+  doneImg: { width: 150, height: 150, borderRadius: 8, alignSelf: 'center' },
+  nextInfo: { backgroundColor: C.soft, borderRadius: 8, padding: 12 },
 });
