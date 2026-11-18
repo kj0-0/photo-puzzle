@@ -583,7 +583,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onCleare
     <View style={{ flex: 1, gap: 10 }}>
       <View style={styles.gameTop}>
         <Pressable onPress={onExit} hitSlop={10} style={styles.backBtn}>
-          <Text style={styles.backText}>‹ 그림 고르기</Text>
+          <Text style={styles.backText}>‹ 사진 바꾸기</Text>
         </Pressable>
         <Text style={styles.gameLevel}>{level}단계</Text>
       </View>
@@ -669,7 +669,7 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onCleare
             )}
             <Btn primary label={isMax ? '한 번 더 하기' : '다음 단계로'} onPress={() => { setShowModal(false); onNext(); }} />
             {!isMax && <Btn label="이 단계 한 번 더" onPress={() => { setShowModal(false); onRetry(); }} />}
-            <Btn label="다른 그림 고르기" onPress={() => { setShowModal(false); onExit(); }} />
+            <Btn label="사진 바꾸기" onPress={() => { setShowModal(false); onExit(); }} />
           </View>
         </View>
       </Modal>
