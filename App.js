@@ -764,7 +764,6 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
               <>
                 <SuccessBadge size={120} />
                 <Text style={[styles.h2, { textAlign: 'center' }]}>성공 뱃지를 받았어요! 🎉</Text>
-                <Text style={[styles.sub, { textAlign: 'center' }]}>8단계를 완성하셨어요.{'\n'}정말 대단해요!</Text>
               </>
             ) : (
               <>
@@ -773,7 +772,8 @@ function Game({ photo, level, init, sound, onProgress, onNext, onRetry, onLevel,
               </>
             )}
             <Text style={[styles.sub, { textAlign: 'center', fontSize: 18 }]}>
-              {level}단계 그림을 완성했어요{'\n'}{doneAt ? fmt(doneAt - start) : ''} 걸렸어요
+              {newBadge ? `${level}단계를 완성하셨어요. 정말 대단해요!` : `${level}단계 그림을 완성했어요`}
+              {'\n'}{doneAt ? fmt(doneAt - start) : ''} 걸렸어요
             </Text>
             {!isMax && (
               <View style={styles.nextInfo}>
