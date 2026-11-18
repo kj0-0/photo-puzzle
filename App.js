@@ -360,7 +360,7 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
           style={({ pressed }) => [styles.resume, pressed && { transform: [{ scale: 0.98 }] }]}>
           <Image source={rPhoto.src} resizeMode="cover" style={styles.resumeImg} />
           <View style={{ flex: 1, gap: 4 }}>
-            <Text style={styles.resumeTitle}>▶ 이어서 하기</Text>
+            <Text style={styles.resumeTitle}>이어서 하기 ▶</Text>
             <Text style={styles.resumeSub}>{rPhoto.name}</Text>
             <Text style={styles.resumeSub}>{rTotal}조각 중 {r.locked.length}개 맞췄어요</Text>
           </View>
