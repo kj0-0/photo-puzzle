@@ -384,7 +384,7 @@ function Start({ prog, albumSrc, onChoose, onResume, onAlbum, onWebFile, onSound
           <SuccessBadge size={52} dim />
           <View style={{ flex: 1, gap: 6 }}>
             <Text style={styles.badgeTitle}>
-              {`${LEVELS.length}단계를 완성하면 성공 뱃지를 받아요`}
+              {`${LEVELS.length}단계 완성하면 성공 뱃지`}
             </Text>
             <View style={styles.dots}>
               {LEVELS.map((_, i) => (
